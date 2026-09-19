@@ -1,11 +1,3 @@
-"""
-app.py
-------
-Nassau Candy Distributor - Product Line Profitability & Margin Performance Dashboard
-An enterprise-grade, production-ready Streamlit analytics application.
-"""
-
-import streamlit as pd_st  # alias to avoid naming confusion
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -13,965 +5,669 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 
-# Local module imports
-from data_loader import load_and_clean_data, get_factory_summary, FACTORY_COORDINATES
+from data_loader import load_data
 from analysis import (
-    calculate_executive_kpis,
-    get_product_profitability_metrics,
-    get_division_metrics,
-    get_pareto_analysis,
-    get_cost_structure_diagnostics,
-    simulate_repricing_impact,
-    get_monthly_profitability_trend,
-    get_regional_profitability
+    get_kpis,
+    get_product_summary,
+    get_division_summary,
+    get_pareto,
+    get_cost_diagnostics,
+    simulate_price_impact
 )
 
-# -----------------------------------------------------------------------------
-# PAGE CONFIGURATION & METADATA
-# -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Nassau Candy | Profitability & Margin Intelligence",
+    page_title="Nassau Candy | Product Profitability",
     page_icon="🍬",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# -----------------------------------------------------------------------------
-# DESIGN SYSTEM & CUSTOM CSS
-# -----------------------------------------------------------------------------
-CUSTOM_CSS = """
+# Custom styling - warm editorial look with DM Serif Display + Inter
+st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-    
-    html, body, [class*="css"] {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap');
+
+    /* Base theme */
+    .stApp {
+        background-color: #f7f5f2;
+        color: #1e293b;
+        font-family: 'Inter', sans-serif;
     }
     
-    /* Header Gradient & Badge */
-    .main-header {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f766e 100%);
-        padding: 24px 32px;
-        border-radius: 16px;
-        color: #ffffff;
-        margin-bottom: 24px;
-        box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.3);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .main-header h1 {
-        font-size: 28px;
-        font-weight: 800;
-        margin: 0 0 6px 0;
-        color: #ffffff;
-        letter-spacing: -0.02em;
-    }
-    .main-header p {
-        font-size: 14px;
-        color: #94a3b8;
-        margin: 0;
-    }
-    .badge-pill {
-        display: inline-block;
-        background: rgba(16, 185, 129, 0.2);
-        color: #34d399;
-        font-size: 12px;
-        font-weight: 600;
-        padding: 4px 12px;
-        border-radius: 9999px;
-        border: 1px solid rgba(52, 211, 153, 0.3);
-        margin-bottom: 8px;
+    /* Editorial Headings */
+    h1, h2, h3, .serif-title {
+        font-family: 'DM Serif Display', Georgia, serif;
+        font-weight: 400;
+        color: #0f172a;
+        letter-spacing: -0.01em;
     }
 
-    /* Metric Cards */
-    .kpi-card {
-        background: #ffffff;
-        border-radius: 12px;
-        padding: 20px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    /* Hero Header Banner */
+    .hero-box {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        padding-bottom: 16px;
+        border-bottom: 2px solid #e2ded8;
+        margin-bottom: 20px;
     }
-    .kpi-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+    .hero-title {
+        font-family: 'DM Serif Display', Georgia, serif;
+        font-size: 34px;
+        margin: 0;
+        color: #0f172a;
+        line-height: 1.1;
     }
-    .kpi-title {
-        font-size: 12px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+    .hero-sub {
+        font-size: 14px;
         color: #64748b;
-        margin-bottom: 6px;
+        margin-top: 4px;
     }
-    .kpi-value {
+    .hero-tag {
+        font-size: 12px;
+        background: #e6e2dc;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-weight: 600;
+        color: #475569;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    /* Top Nav Styling */
+    div[data-testid="stRadio"] > div {
+        flex-direction: row;
+        gap: 8px;
+        background: #ede9e3;
+        padding: 6px;
+        border-radius: 10px;
+        margin-bottom: 18px;
+    }
+    div[data-testid="stRadio"] label {
+        background: transparent;
+        padding: 6px 18px;
+        border-radius: 8px;
+        border: none;
+        font-weight: 500;
+        font-size: 14px;
+        color: #475569;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    div[data-testid="stRadio"] label:hover {
+        color: #0f172a;
+    }
+
+    /* Custom KPI Cards */
+    .metric-card {
+        background: #ffffff;
+        border: 1px solid #e5e0d8;
+        border-radius: 12px;
+        padding: 16px 18px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .metric-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #64748b;
+        margin-bottom: 4px;
+    }
+    .metric-val {
         font-size: 26px;
         font-weight: 700;
         color: #0f172a;
-        margin-bottom: 4px;
+        line-height: 1.2;
     }
-    .kpi-subtext {
+    .metric-sub {
         font-size: 12px;
+        color: #0f766e;
         font-weight: 500;
+        margin-top: 4px;
     }
-    .kpi-subtext.positive { color: #10b981; }
-    .kpi-subtext.neutral { color: #64748b; }
-    .kpi-subtext.warning { color: #f59e0b; }
-    .kpi-subtext.danger { color: #ef4444; }
+    .metric-sub.alert {
+        color: #c2410c;
+    }
 
-    /* Action Banner */
-    .action-banner {
-        background: #f8fafc;
-        border-left: 4px solid #3b82f6;
-        padding: 14px 18px;
+    /* Commentary Callout Box */
+    .note-box {
+        background: #ffffff;
+        border-left: 3px solid #0f766e;
+        padding: 14px 16px;
         border-radius: 0 8px 8px 0;
-        margin-bottom: 20px;
         font-size: 13px;
+        line-height: 1.5;
         color: #334155;
+        margin-top: 12px;
+        border-top: 1px solid #e5e0d8;
+        border-right: 1px solid #e5e0d8;
+        border-bottom: 1px solid #e5e0d8;
+    }
+    .note-box strong {
+        color: #0f172a;
     }
 
-    /* Tabs Styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
+    /* Chart captions */
+    .chart-caption {
+        font-size: 13px;
+        color: #64748b;
+        margin-bottom: 8px;
+        font-style: italic;
     }
-    .stTabs [data-baseweb="tab"] {
-        padding: 10px 18px;
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 14px;
-    }
-
-    /* Hide Streamlit default branding for clean look */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
 </style>
-"""
-st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
+# Custom color palette for Plotly charts
+PALETTE = ["#0f766e", "#c2410c", "#b45309", "#334155", "#64748b", "#0284c7"]
 
-# -----------------------------------------------------------------------------
-# DATA CACHING
-# -----------------------------------------------------------------------------
-@st.cache_data(show_spinner="Ingesting and standardizing Nassau Candy data...")
-def get_cached_dataset():
-    """Load cleaned data with Streamlit caching."""
-    return load_and_clean_data()
+# Load data
+@st.cache_data
+def get_data():
+    return load_data()
 
+raw_df = get_data()
 
-# -----------------------------------------------------------------------------
-# DATA INGESTION & AUDIT
-# -----------------------------------------------------------------------------
-raw_cleaned_df, audit_stats = get_cached_dataset()
-
-# -----------------------------------------------------------------------------
-# SIDEBAR FILTERS & CONTROLS
-# -----------------------------------------------------------------------------
-with st.sidebar:
-    st.image("https://images.unsplash.com/photo-1582293041079-7814c2f12063?w=500&auto=format&fit=crop&q=60", use_container_width=True)
-    st.markdown("### 🎛️ Analytics Controls")
-    st.caption("Filter and segment financial data across dimensions.")
-
-    # Date Range Filter
-    min_date = raw_cleaned_df["Order Date"].min().date()
-    max_date = raw_cleaned_df["Order Date"].max().date()
-    
-    date_preset = st.radio(
-        "Date Preset",
-        ["Full Timeframe (2024-2025)", "Year 2024", "Year 2025", "Custom Range"],
-        index=0,
-        horizontal=False
-    )
-    
-    if date_preset == "Year 2024":
-        start_date, end_date = pd.to_datetime("2024-01-01").date(), pd.to_datetime("2024-12-31").date()
-    elif date_preset == "Year 2025":
-        start_date, end_date = pd.to_datetime("2025-01-01").date(), pd.to_datetime("2025-12-31").date()
-    elif date_preset == "Custom Range":
-        selected_dates = st.date_input("Select Date Range", [min_date, max_date], min_value=min_date, max_value=max_date)
-        if len(selected_dates) == 2:
-            start_date, end_date = selected_dates
-        else:
-            start_date, end_date = min_date, max_date
-    else:
-        start_date, end_date = min_date, max_date
-
-    st.divider()
-
-    # Division Filter
-    all_divisions = sorted(raw_cleaned_df["Division"].unique().tolist())
-    selected_divisions = st.multiselect("Division Selection", all_divisions, default=all_divisions)
-
-    # Factory Filter
-    all_factories = sorted(raw_cleaned_df["Factory"].unique().tolist())
-    selected_factories = st.multiselect("Manufacturing Plant", all_factories, default=all_factories)
-
-    # Margin Threshold Filter
-    margin_threshold = st.slider("Min Product Gross Margin %", min_value=0.0, max_value=100.0, value=0.0, step=5.0)
-
-    # Product Search
-    search_query = st.text_input("🔍 Search Product Name", "").strip().lower()
-
-    st.divider()
-    st.caption("Nassau Candy Analytics v2.4 | Production Grade")
-
-# -----------------------------------------------------------------------------
-# APPLY GLOBAL FILTERING
-# -----------------------------------------------------------------------------
-filtered_df = raw_cleaned_df[
-    (raw_cleaned_df["Order Date"].dt.date >= start_date) &
-    (raw_cleaned_df["Order Date"].dt.date <= end_date) &
-    (raw_cleaned_df["Division"].isin(selected_divisions if selected_divisions else all_divisions)) &
-    (raw_cleaned_df["Factory"].isin(selected_factories if selected_factories else all_factories)) &
-    (raw_cleaned_df["Gross Margin %"] >= margin_threshold)
-]
-
-if search_query:
-    filtered_df = filtered_df[filtered_df["Product Name"].str.lower().str.contains(search_query)]
-
-# Empty check fallback
-if filtered_df.empty:
-    st.warning("⚠️ No records match the current filter selection. Please broaden your sidebar filters.")
-    st.stop()
-
-# -----------------------------------------------------------------------------
-# HEADER & EXECUTIVE BANNER
-# -----------------------------------------------------------------------------
+# Header
 st.markdown("""
-<div class="main-header">
-    <div class="badge-pill">NASSAU CANDY DISTRIBUTOR • C-SUITE FINANCIAL INTELLIGENCE</div>
-    <h1>Product Line Profitability & Margin Performance</h1>
-    <p>Comprehensive unit-economic diagnostics, profit concentration (Pareto), division contribution, and margin optimization roadmap.</p>
+<div class="hero-box">
+    <div>
+        <h1 class="hero-title">Product Line Profitability & Margins</h1>
+        <div class="hero-sub">Nassau Candy Distributor • Unit Economics, Concentration Risk & Remedial Pricing</div>
+    </div>
+    <div class="hero-tag">FY2024–FY2025 Audit</div>
 </div>
 """, unsafe_allow_html=True)
 
-# -----------------------------------------------------------------------------
-# EXECUTIVE KPI RIBBON
-# -----------------------------------------------------------------------------
-kpi_data = calculate_executive_kpis(filtered_df)
-product_metrics_df = get_product_profitability_metrics(filtered_df)
-cost_diag_df, cost_diag_summary = get_cost_structure_diagnostics(filtered_df)
+# Top Bar Filters in an Expander (Keeps sidebar clean!)
+with st.expander("Filter Transactions & Thresholds", expanded=False):
+    f1, f2, f3, f4, f5 = st.columns([1.5, 1.2, 1.2, 1.5, 0.8])
+    
+    with f1:
+        min_d = raw_df['Order Date'].min().date()
+        max_d = raw_df['Order Date'].max().date()
+        date_range = st.date_input("Date Range", [min_d, max_d], min_value=min_d, max_value=max_d)
+        
+    with f2:
+        divisions = sorted(raw_df['Division'].unique())
+        selected_divs = st.multiselect("Divisions", divisions, default=divisions)
+        
+    with f3:
+        min_margin = st.slider("Min Margin %", 0, 90, 0, step=5)
+        
+    with f4:
+        search_query = st.text_input("Search SKU Name", placeholder="e.g. Wonka, Kazookles...").strip().lower()
+        
+    with f5:
+        st.write("")
+        st.write("")
+        reset = st.button("Reset", use_container_width=True)
 
-top_product_name = product_metrics_df.iloc[0]["Product Name"] if not product_metrics_df.empty else "N/A"
-top_product_profit = product_metrics_df.iloc[0]["Total_Profit"] if not product_metrics_df.empty else 0
+if reset:
+    selected_divs = divisions
+    min_margin = 0
+    search_query = ""
+    date_range = [min_d, max_d]
 
-c1, c2, c3, c4, c5, c6 = st.columns(6)
+# Apply filters
+start_dt, end_dt = (date_range[0], date_range[1]) if len(date_range) == 2 else (min_d, max_d)
 
-with c1:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Gross Revenue</div>
-        <div class="kpi-value">${kpi_data['total_revenue']:,.2f}</div>
-        <div class="kpi-subtext neutral">{kpi_data['total_orders']:,} Total Orders</div>
-    </div>
-    """, unsafe_allow_html=True)
+df = raw_df[
+    (raw_df['Order Date'].dt.date >= start_dt) &
+    (raw_df['Order Date'].dt.date <= end_dt) &
+    (raw_df['Division'].isin(selected_divs if selected_divs else divisions)) &
+    (raw_df['Gross Margin %'] >= min_margin)
+]
 
-with c2:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Gross Profit</div>
-        <div class="kpi-value">${kpi_data['total_profit']:,.2f}</div>
-        <div class="kpi-subtext positive">Margin: ${kpi_data['profit_per_unit']:.2f} / unit</div>
-    </div>
-    """, unsafe_allow_html=True)
+if search_query:
+    df = df[df['Product Name'].str.lower().str.contains(search_query)]
 
-with c3:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Blended Margin</div>
-        <div class="kpi-value">{kpi_data['overall_margin']:.1f}%</div>
-        <div class="kpi-subtext {'positive' if kpi_data['overall_margin'] >= 60 else 'warning'}">
-            {'Strong Margin' if kpi_data['overall_margin'] >= 60 else 'Requires Repricing'}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+if df.empty:
+    st.info("No orders found matching this filter criteria. Try adjusting the thresholds above.")
+    st.stop()
 
-with c4:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Units Sold</div>
-        <div class="kpi-value">{kpi_data['total_units']:,}</div>
-        <div class="kpi-subtext neutral">Avg Price: ${kpi_data['total_revenue']/max(1, kpi_data['total_units']):.2f}</div>
-    </div>
-    """, unsafe_allow_html=True)
+# Compute core summaries
+kpis = get_kpis(df)
+prod_df = get_product_summary(df)
+div_df = get_division_summary(df)
 
-with c5:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Top Profit SKU</div>
-        <div class="kpi-value" style="font-size: 16px; font-weight: 700; height: 32px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{top_product_name}">{top_product_name}</div>
-        <div class="kpi-subtext positive">${top_product_profit:,.2f} Profit</div>
-    </div>
-    """, unsafe_allow_html=True)
+# Horizontal Navigation Bar
+sections = [
+    "Product Profitability",
+    "Division Performance",
+    "Cost vs Margin Diagnostics",
+    "Profit Concentration (Pareto)",
+    "Executive Briefing & Data"
+]
 
-with c6:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Action SKU Flags</div>
-        <div class="kpi-value" style="color: #ef4444;">{cost_diag_summary['renegotiate_count'] + cost_diag_summary['reprice_count'] + cost_diag_summary['discontinue_count']}</div>
-        <div class="kpi-subtext danger">{cost_diag_summary['renegotiate_count']} Critical Vendor Review</div>
-    </div>
-    """, unsafe_allow_html=True)
+nav = st.radio("Navigation", sections, horizontal=True, label_visibility="collapsed")
 
 st.write("")
 
 # -----------------------------------------------------------------------------
-# TABS ARCHITECTURE
+# 1. PRODUCT PROFITABILITY
 # -----------------------------------------------------------------------------
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "📊 Product Profitability",
-    "🏭 Division & Factory",
-    "⚠️ Cost & Margin Diagnostics",
-    "📈 Profit Concentration (Pareto)",
-    "🎯 Growth Matrix & Volatility",
-    "📄 Executive Briefing & Export"
-])
-
-
-# =============================================================================
-# TAB 1: PRODUCT PROFITABILITY OVERVIEW
-# =============================================================================
-with tab1:
-    st.markdown("### 🏆 Product Margin & Profitability Leaderboard")
-    st.caption("Detailed ranking of product performance, margin percentages, unit economics, and volatility.")
-
-    # Leaderboard Table
-    display_prod_df = product_metrics_df[[
-        "Product Name", "Division", "Factory", "Total_Sales", "Total_Cost",
-        "Total_Profit", "Gross_Margin_%", "Cost_Ratio_%", "Profit_Per_Unit",
-        "Revenue_Share_%", "Profit_Share_%", "Margin_Volatility_Pct", "Strategic_Category"
-    ]].copy()
-
-    # Format styling with Streamlit native column_config (robust & high performance)
-    st.dataframe(
-        display_prod_df,
-        column_config={
-            "Product Name": st.column_config.TextColumn("Product Name", width="medium"),
-            "Division": st.column_config.TextColumn("Division"),
-            "Factory": st.column_config.TextColumn("Manufacturing Plant"),
-            "Total_Sales": st.column_config.NumberColumn("Total Sales", format="$%.2f"),
-            "Total_Cost": st.column_config.NumberColumn("Total Cost", format="$%.2f"),
-            "Total_Profit": st.column_config.NumberColumn("Gross Profit", format="$%.2f"),
-            "Gross_Margin_%": st.column_config.ProgressColumn(
-                "Gross Margin %",
-                format="%.1f%%",
-                min_value=0,
-                max_value=100
-            ),
-            "Cost_Ratio_%": st.column_config.NumberColumn("Cost Ratio %", format="%.1f%%"),
-            "Profit_Per_Unit": st.column_config.NumberColumn("Profit / Unit", format="$%.2f"),
-            "Revenue_Share_%": st.column_config.NumberColumn("Revenue Share %", format="%.2f%%"),
-            "Profit_Share_%": st.column_config.NumberColumn("Profit Share %", format="%.2f%%"),
-            "Margin_Volatility_Pct": st.column_config.NumberColumn("Margin Volatility %", format="%.2f%%"),
-            "Strategic_Category": st.column_config.TextColumn("Strategic Category", width="medium")
-        },
-        use_container_width=True,
-        hide_index=True,
-        height=380
-    )
-
-    st.divider()
-
-    # Visual Comparisons: Top by Profit vs Top by Margin
-    col_chart_left, col_chart_right = st.columns(2)
-
-    with col_chart_left:
-        st.markdown("#### Top Products by Gross Profit ($)")
-        top_profit_chart_df = product_metrics_df.sort_values(by="Total_Profit", ascending=True).tail(10)
-        
-        fig_profit = px.bar(
-            top_profit_chart_df,
-            x="Total_Profit",
-            y="Product Name",
-            orientation="h",
-            color="Gross_Margin_%",
-            color_continuous_scale="Viridis",
-            labels={"Total_Profit": "Gross Profit ($)", "Product Name": "Product", "Gross_Margin_%": "Margin %"},
-            text="Total_Profit"
-        )
-        fig_profit.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
-        fig_profit.update_layout(
-            margin=dict(l=10, r=40, t=20, b=20),
-            height=380,
-            xaxis=dict(showgrid=True, gridcolor="#f1f5f9"),
-            yaxis=dict(categoryorder="total ascending")
-        )
-        st.plotly_chart(fig_profit, use_container_width=True)
-
-    with col_chart_right:
-        st.markdown("#### Top Products by Gross Margin (%)")
-        top_margin_chart_df = product_metrics_df.sort_values(by="Gross_Margin_%", ascending=True).tail(10)
-        
-        fig_margin = px.bar(
-            top_margin_chart_df,
-            x="Gross_Margin_%",
-            y="Product Name",
-            orientation="h",
-            color="Division",
-            color_discrete_map={"Chocolate": "#3b82f6", "Other": "#8b5cf6", "Sugar": "#ec4899"},
-            labels={"Gross_Margin_%": "Gross Margin (%)", "Product Name": "Product"},
-            text="Gross_Margin_%"
-        )
-        fig_margin.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-        fig_margin.update_layout(
-            margin=dict(l=10, r=40, t=20, b=20),
-            height=380,
-            xaxis=dict(showgrid=True, gridcolor="#f1f5f9", range=[0, 100]),
-            yaxis=dict(categoryorder="total ascending")
-        )
-        st.plotly_chart(fig_margin, use_container_width=True)
-
-    # Scatter: Sales vs Gross Margin with Quadrants
-    st.markdown("#### 🔍 Sales vs. Gross Margin Multi-Dimensional Bubble Matrix")
-    st.caption("Bubble size corresponds to Gross Profit ($). Hover over points to examine unit economics.")
-
-    median_sales = product_metrics_df["Total_Sales"].median()
-    median_margin = product_metrics_df["Gross_Margin_%"].median()
-
-    fig_bubble = px.scatter(
-        product_metrics_df,
-        x="Total_Sales",
-        y="Gross_Margin_%",
-        size="Total_Profit",
-        color="Division",
-        hover_name="Product Name",
-        hover_data={
-            "Total_Sales": ":$,.2f",
-            "Gross_Margin_%": ":.2f%",
-            "Total_Profit": ":$,.2f",
-            "Total_Cost": ":$,.2f",
-            "Profit_Per_Unit": ":$,.2f",
-            "Strategic_Category": True
-        },
-        size_max=45,
-        color_discrete_map={"Chocolate": "#1e3a8a", "Other": "#7c3aed", "Sugar": "#db2777"},
-        labels={"Total_Sales": "Total Gross Sales ($)", "Gross_Margin_%": "Gross Margin (%)"}
-    )
+if nav == "Product Profitability":
+    col_main, col_side = st.columns([2.2, 1])
     
-    # Add median quadrant benchmark lines
-    fig_bubble.add_vline(x=median_sales, line_width=1.5, line_dash="dash", line_color="#94a3b8", annotation_text="Median Sales", annotation_position="top right")
-    fig_bubble.add_hline(y=median_margin, line_width=1.5, line_dash="dash", line_color="#94a3b8", annotation_text="Median Margin", annotation_position="top right")
-
-    fig_bubble.update_layout(
-        height=480,
-        margin=dict(l=20, r=20, t=30, b=30),
-        xaxis=dict(showgrid=True, gridcolor="#f1f5f9"),
-        yaxis=dict(showgrid=True, gridcolor="#f1f5f9", range=[0, 95])
-    )
-    st.plotly_chart(fig_bubble, use_container_width=True)
-
-
-# =============================================================================
-# TAB 2: DIVISION & FACTORY PERFORMANCE
-# =============================================================================
-with tab2:
-    st.markdown("### 🏢 Division Performance & Distribution Analysis")
-    div_df = get_division_metrics(filtered_df)
-
-    d_col1, d_col2 = st.columns([1, 1])
-
-    with d_col1:
-        st.markdown("#### Division Revenue vs Gross Profit Comparison")
-        fig_div_bar = go.Figure()
-        fig_div_bar.add_trace(go.Bar(
-            name="Gross Revenue",
-            x=div_df["Division"],
-            y=div_df["Total_Sales"],
-            marker_color="#3b82f6",
-            text=div_df["Total_Sales"].apply(lambda v: f"${v:,.0f}"),
-            textposition="outside"
-        ))
-        fig_div_bar.add_trace(go.Bar(
-            name="Gross Profit",
-            x=div_df["Division"],
-            y=div_df["Total_Profit"],
-            marker_color="#10b981",
-            text=div_df["Total_Profit"].apply(lambda v: f"${v:,.0f}"),
-            textposition="outside"
-        ))
-        fig_div_bar.update_layout(
-            barmode="group",
-            height=360,
-            margin=dict(l=10, r=10, t=30, b=20),
-            yaxis=dict(title="USD ($)", showgrid=True, gridcolor="#f1f5f9")
-        )
-        st.plotly_chart(fig_div_bar, use_container_width=True)
-
-    with d_col2:
-        st.markdown("#### Margin Distribution by Division (Boxplot)")
-        fig_box = px.box(
-            filtered_df,
-            x="Division",
-            y="Gross Margin %",
-            color="Division",
-            points="all",
-            color_discrete_map={"Chocolate": "#3b82f6", "Other": "#8b5cf6", "Sugar": "#ec4899"},
-            labels={"Gross Margin %": "Transaction Margin (%)"}
-        )
-        fig_box.update_layout(
-            height=360,
-            margin=dict(l=10, r=10, t=30, b=20),
-            showlegend=False,
-            yaxis=dict(showgrid=True, gridcolor="#f1f5f9")
-        )
-        st.plotly_chart(fig_box, use_container_width=True)
-
-    st.markdown("#### Division Financial Summary Table")
-    st.dataframe(
-        div_df,
-        column_config={
-            "Division": st.column_config.TextColumn("Division"),
-            "Total_Sales": st.column_config.NumberColumn("Total Sales", format="$%.2f"),
-            "Total_Cost": st.column_config.NumberColumn("Total Cost", format="$%.2f"),
-            "Total_Profit": st.column_config.NumberColumn("Gross Profit", format="$%.2f"),
-            "Total_Units": st.column_config.NumberColumn("Units Shipped", format="%d"),
-            "Order_Count": st.column_config.NumberColumn("Orders", format="%d"),
-            "Product_Count": st.column_config.NumberColumn("SKU Count", format="%d"),
-            "Gross_Margin_%": st.column_config.ProgressColumn("Gross Margin %", format="%.2f%%", min_value=0, max_value=100),
-            "Cost_Ratio_%": st.column_config.NumberColumn("Cost Ratio %", format="%.2f%%"),
-            "Profit_Per_Unit": st.column_config.NumberColumn("Profit / Unit", format="$%.2f"),
-            "Revenue_Share_%": st.column_config.NumberColumn("Revenue Share %", format="%.2f%%"),
-            "Profit_Share_%": st.column_config.NumberColumn("Profit Share %", format="%.2f%%")
-        },
-        use_container_width=True,
-        hide_index=True
-    )
-
-    st.divider()
-
-    # Factory Performance Section
-    st.markdown("### 🏭 Manufacturing Plant & Capacity Intelligence")
-    st.caption("Aggregated throughput, margin efficiency, and capacity utilization across 5 manufacturing facilities.")
-    
-    factory_summary_df = get_factory_summary(filtered_df)
-
-    f_col1, f_col2 = st.columns([1.2, 1])
-
-    with f_col1:
-        st.markdown("#### Manufacturing Facility Profit Output ($)")
-        fig_factory = px.bar(
-            factory_summary_df,
-            x="Total_Profit",
-            y="Factory",
-            orientation="h",
-            color="Gross_Margin_%",
-            color_continuous_scale="Teal",
-            text="Total_Profit",
-            labels={"Total_Profit": "Gross Profit ($)", "Factory": "Facility"}
-        )
-        fig_factory.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
-        fig_factory.update_layout(
-            height=320,
-            margin=dict(l=10, r=40, t=20, b=20),
-            yaxis=dict(categoryorder="total ascending")
-        )
-        st.plotly_chart(fig_factory, use_container_width=True)
-
-    with f_col2:
-        st.markdown("#### Factory Geographic Footprint")
-        fig_geo = px.scatter_geo(
-            factory_summary_df,
-            lat="Lat",
-            lon="Lon",
-            hover_name="Factory",
-            size="Total_Profit",
-            color="Gross_Margin_%",
-            color_continuous_scale="Purples",
-            scope="usa",
-            hover_data={
-                "City": True,
-                "State": True,
-                "Total_Sales": ":$,.2f",
-                "Total_Profit": ":$,.2f",
-                "Gross_Margin_%": ":.1f%"
-            }
-        )
-        fig_geo.update_layout(
-            height=320,
-            margin=dict(l=0, r=0, t=10, b=0),
-            geo=dict(lakecolor='rgb(255, 255, 255)', landcolor='#f8fafc', subunitcolor='#cbd5e1')
-        )
-        st.plotly_chart(fig_geo, use_container_width=True)
-
-
-# =============================================================================
-# TAB 3: COST STRUCTURE & MARGIN DIAGNOSTICS
-# =============================================================================
-with tab3:
-    st.markdown("### 🚨 Cost Structure Diagnostics & Remedial Action Engine")
-    st.caption("Identify cost-heavy SKUs, supplier price spikes, and actionable repricing / discontinuation flags.")
-
-    # Cost vs Sales Diagnostic Scatter
-    fig_cost_scatter = px.scatter(
-        product_metrics_df,
-        x="Total_Sales",
-        y="Total_Cost",
-        size="Total_Units",
-        color="Gross_Margin_%",
-        color_continuous_scale="RdYlGn",
-        hover_name="Product Name",
-        hover_data={
-            "Total_Sales": ":$,.2f",
-            "Total_Cost": ":$,.2f",
-            "Cost_Ratio_%": ":.1f%",
-            "Gross_Margin_%": ":.1f%",
-            "Strategic_Category": True
-        },
-        labels={"Total_Sales": "Gross Sales ($)", "Total_Cost": "Cost of Goods Sold ($)"}
-    )
-    
-    # 70% Cost Warning Boundary
-    max_s = product_metrics_df["Total_Sales"].max()
-    fig_cost_scatter.add_trace(go.Scatter(
-        x=[0, max_s],
-        y=[0, max_s * 0.70],
-        mode="lines",
-        name="70% Cost Limit (Renegotiation Boundary)",
-        line=dict(color="#ef4444", dash="dash", width=2)
-    ))
-    
-    fig_cost_scatter.update_layout(
-        height=400,
-        margin=dict(l=20, r=20, t=30, b=20),
-        xaxis=dict(showgrid=True, gridcolor="#f1f5f9"),
-        yaxis=dict(showgrid=True, gridcolor="#f1f5f9")
-    )
-    st.plotly_chart(fig_cost_scatter, use_container_width=True)
-
-    # Action Trigger Flag Table
-    st.markdown("#### 📋 Automated Remedial Action Register")
-    action_table = cost_diag_df[[
-        "Product Name", "Division", "Total_Sales", "Total_Cost", "Cost_Ratio_%",
-        "Gross_Margin_%", "Profit_Per_Unit", "Action_Severity", "Recommended_Action"
-    ]].copy()
-
-    st.dataframe(
-        action_table,
-        column_config={
-            "Product Name": st.column_config.TextColumn("Product Name", width="medium"),
-            "Division": st.column_config.TextColumn("Division"),
-            "Total_Sales": st.column_config.NumberColumn("Total Sales", format="$%.2f"),
-            "Total_Cost": st.column_config.NumberColumn("Total Cost", format="$%.2f"),
-            "Cost_Ratio_%": st.column_config.NumberColumn("Cost Ratio %", format="%.1f%%"),
-            "Gross_Margin_%": st.column_config.ProgressColumn("Gross Margin %", format="%.1f%%", min_value=0, max_value=100),
-            "Profit_Per_Unit": st.column_config.NumberColumn("Profit / Unit", format="$%.2f"),
-            "Action_Severity": st.column_config.TextColumn("Severity"),
-            "Recommended_Action": st.column_config.TextColumn("Strategic Diagnostic & Trigger", width="large")
-        },
-        use_container_width=True,
-        hide_index=True,
-        height=320
-    )
-
-    st.divider()
-
-    # Interactive What-If Repricing & Margin Simulator
-    st.markdown("### 🧪 What-If Repricing & Profit Recovery Simulator")
-    st.caption("Model the financial impact of price elasticity and supplier cost negotiations for margin recovery.")
-
-    sim_col1, sim_col2 = st.columns([1, 1.2])
-
-    with sim_col1:
-        target_product = st.selectbox(
-            "Select SKU to Simulate",
-            product_metrics_df["Product Name"].tolist(),
-            index=product_metrics_df[product_metrics_df["Product Name"] == "Kazookles"].index[0] if "Kazookles" in product_metrics_df["Product Name"].values else 0
-        )
-        
-        sim_price_pct = st.slider("Selling Price Adjustment (%)", min_value=-10.0, max_value=40.0, value=10.0, step=1.0)
-        sim_cost_pct = st.slider("Supplier Cost Reduction (%)", min_value=0.0, max_value=25.0, value=5.0, step=1.0)
-        sim_elasticity = st.slider("Demand Price Elasticity (Ed)", min_value=-1.5, max_value=0.0, value=-0.3, step=0.1, help="Confectionery demand is generally inelastic (-0.2 to -0.5).")
-
-    with sim_col2:
-        sim_res = simulate_repricing_impact(
-            filtered_df,
-            product_name=target_product,
-            price_pct_change=sim_price_pct,
-            cost_reduction_pct=sim_cost_pct,
-            demand_elasticity=sim_elasticity
-        )
-
-        if sim_res:
-            s_c1, s_c2 = st.columns(2)
-            with s_c1:
-                st.metric("New Gross Margin", f"{sim_res['new_margin']:.1f}%", f"{sim_res['margin_delta_pts']:+.1f}% pts")
-                st.metric("New Gross Profit", f"${sim_res['new_profit']:,.2f}", f"${sim_res['profit_delta']:+,.2f} ({sim_res['profit_pct_delta']:+.1f}%)")
-            with s_c2:
-                st.metric("New Units Demand", f"{sim_res['new_units']:,}", f"{sim_res['new_units'] - sim_res['base_units']:+,} units")
-                st.metric("New Gross Revenue", f"${sim_res['new_sales']:,.2f}", f"${sim_res['new_sales'] - sim_res['base_sales']:+,.2f}")
-
-            # Waterfall / Before & After Bar
-            fig_sim = go.Figure()
-            fig_sim.add_trace(go.Bar(
-                name="Baseline",
-                x=["Revenue", "COGS (Cost)", "Gross Profit"],
-                y=[sim_res["base_sales"], sim_res["base_cost"], sim_res["base_profit"]],
-                marker_color="#94a3b8"
-            ))
-            fig_sim.add_trace(go.Bar(
-                name="Simulated Outcome",
-                x=["Revenue", "COGS (Cost)", "Gross Profit"],
-                y=[sim_res["new_sales"], sim_res["new_cost"], sim_res["new_profit"]],
-                marker_color="#10b981"
-            ))
-            fig_sim.update_layout(
-                barmode="group",
-                height=240,
-                margin=dict(l=10, r=10, t=20, b=20),
-                yaxis=dict(title="USD ($)", showgrid=True, gridcolor="#f1f5f9")
+    with col_main:
+        with st.container(border=True):
+            st.markdown("### Product Margin & Turnover Matrix")
+            st.markdown('<div class="chart-caption">Bubble size represents Gross Profit ($). Look for large bubbles near the top right—those drive the business.</div>', unsafe_allow_html=True)
+            
+            med_s = prod_df['Total_Sales'].median()
+            med_m = prod_df['Gross_Margin_%'].median()
+            
+            fig = px.scatter(
+                prod_df,
+                x='Total_Sales',
+                y='Gross_Margin_%',
+                size='Total_Profit',
+                color='Division',
+                hover_name='Product Name',
+                hover_data={
+                    'Total_Sales': ':$,.2f',
+                    'Gross_Margin_%': ':.1f%',
+                    'Total_Profit': ':$,.2f',
+                    'Cost_Ratio_%': ':.1f%',
+                    'Profit_per_Unit': ':$,.2f'
+                },
+                size_max=38,
+                color_discrete_sequence=PALETTE,
+                labels={'Total_Sales': 'Gross Sales ($)', 'Gross_Margin_%': 'Gross Margin (%)'}
             )
-            st.plotly_chart(fig_sim, use_container_width=True)
+            
+            # Subtle quadrant guidelines
+            fig.add_vline(x=med_s, line_dash="dash", line_color="#cbd5e1", line_width=1.5)
+            fig.add_hline(y=med_m, line_dash="dash", line_color="#cbd5e1", line_width=1.5)
+            fig.update_layout(
+                template="plotly_white",
+                height=380,
+                margin=dict(l=10, r=10, t=20, b=20),
+                xaxis=dict(showgrid=True, gridcolor="#f1f5f9"),
+                yaxis=dict(showgrid=True, gridcolor="#f1f5f9", range=[0, 90])
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
+        with st.container(border=True):
+            st.markdown("### Product Leaderboard")
+            st.dataframe(
+                prod_df[[
+                    'Product Name', 'Division', 'Total_Sales', 'Total_Cost',
+                    'Total_Profit', 'Gross_Margin_%', 'Profit_per_Unit',
+                    'Profit_Share_%', 'Classification'
+                ]],
+                column_config={
+                    'Product Name': st.column_config.TextColumn("Product Name", width="medium"),
+                    'Division': st.column_config.TextColumn("Division"),
+                    'Total_Sales': st.column_config.NumberColumn("Sales", format="$%.2f"),
+                    'Total_Cost': st.column_config.NumberColumn("Cost", format="$%.2f"),
+                    'Total_Profit': st.column_config.NumberColumn("Gross Profit", format="$%.2f"),
+                    'Gross_Margin_%': st.column_config.ProgressColumn("Margin %", format="%.1f%%", min_value=0, max_value=100),
+                    'Profit_per_Unit': st.column_config.NumberColumn("Profit/Unit", format="$%.2f"),
+                    'Profit_Share_%': st.column_config.NumberColumn("Profit Share", format="%.1f%%"),
+                    'Classification': st.column_config.TextColumn("Portfolio Tag", width="medium")
+                },
+                use_container_width=True,
+                hide_index=True,
+                height=320
+            )
 
-# =============================================================================
-# TAB 4: PROFIT CONCENTRATION (PARETO 80/20)
-# =============================================================================
-with tab4:
-    st.markdown("### 📈 Profit & Revenue Concentration Analysis (80/20 Pareto)")
-    st.caption("Quantify catalog concentration risk, revenue vs profit skew, and portfolio dependency.")
-
-    pareto_profit_df, pareto_profit_stats = get_pareto_analysis(filtered_df, metric="Gross Profit")
-    pareto_sales_df, pareto_sales_stats = get_pareto_analysis(filtered_df, metric="Sales")
-
-    # Pareto Risk Metrics
-    par_c1, par_c2, par_c3, par_c4 = st.columns(4)
-
-    with par_c1:
+    with col_side:
+        # Custom KPI cards
         st.markdown(f"""
-        <div class="kpi-card">
-            <div class="kpi-title">80% Profit Driver SKUs</div>
-            <div class="kpi-value">{pareto_profit_stats.get('products_for_80_pct', 0)} of {pareto_profit_stats.get('total_products', 0)}</div>
-            <div class="kpi-subtext danger">{pareto_profit_stats.get('pct_of_catalog_for_80_pct', 0):.1f}% of SKU catalog</div>
+        <div class="metric-card">
+            <div class="metric-label">Gross Revenue</div>
+            <div class="metric-val">${kpis['sales']:,.2f}</div>
+            <div class="metric-sub">{kpis['orders']:,} Total Orders</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Gross Profit</div>
+            <div class="metric-val">${kpis['profit']:,.2f}</div>
+            <div class="metric-sub">${kpis['ppu']:.2f} Avg Unit Margin</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Blended Gross Margin</div>
+            <div class="metric-val">{kpis['margin']:.1f}%</div>
+            <div class="metric-sub {'alert' if kpis['margin'] < 60 else ''}">
+                {'Requires Reprice Attention' if kpis['margin'] < 60 else 'Healthy Core Baseline'}
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Total Units Distributed</div>
+            <div class="metric-val">{kpis['units']:,}</div>
+            <div class="metric-sub">${kpis['aov']:.2f} Avg Order Value</div>
         </div>
         """, unsafe_allow_html=True)
-
-    with par_c2:
-        st.markdown(f"""
-        <div class="kpi-card">
-            <div class="kpi-title">Top 20% SKUs Profit Share</div>
-            <div class="kpi-value">{pareto_profit_stats.get('top_20_pct_products_share', 0):.1f}%</div>
-            <div class="kpi-subtext warning">High Profit Skew</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with par_c3:
-        st.markdown(f"""
-        <div class="kpi-card">
-            <div class="kpi-title">HHI Concentration Index</div>
-            <div class="kpi-value">{pareto_profit_stats.get('hhi_score', 0):,.0f}</div>
-            <div class="kpi-subtext neutral">{pareto_profit_stats.get('concentration_level', '')}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with par_c4:
-        st.markdown(f"""
-        <div class="kpi-card">
-            <div class="kpi-title">Top Single SKU Contribution</div>
-            <div class="kpi-value">{pareto_profit_stats.get('top_product_share', 0):.1f}%</div>
-            <div class="kpi-subtext neutral">{pareto_profit_stats.get('top_product_name', '')[:20]}...</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.write("")
-
-    # Pareto Dual-Axis Charts
-    col_pareto_1, col_pareto_2 = st.columns(2)
-
-    with col_pareto_1:
-        st.markdown("#### Gross Profit Pareto Curve")
-        fig_pareto_p = go.Figure()
-        fig_pareto_p.add_trace(go.Bar(
-            name="Gross Profit ($)",
-            x=pareto_profit_df["Product Name"],
-            y=pareto_profit_df["Metric_Value"],
-            marker_color="#1e40af",
-            yaxis="y1"
-        ))
-        fig_pareto_p.add_trace(go.Scatter(
-            name="Cumulative Profit %",
-            x=pareto_profit_df["Product Name"],
-            y=pareto_profit_df["Cumulative_%"],
-            marker=dict(color="#f97316", size=8),
-            line=dict(color="#f97316", width=3),
-            yaxis="y2"
-        ))
-        # 80% Benchmark
-        fig_pareto_p.add_hline(y=80, line_dash="dash", line_color="#ef4444", yref="y2", annotation_text="80% Threshold")
         
-        fig_pareto_p.update_layout(
-            height=420,
-            margin=dict(l=10, r=10, t=30, b=80),
-            yaxis=dict(title="Gross Profit ($)", showgrid=True, gridcolor="#f1f5f9"),
-            yaxis2=dict(title="Cumulative %", overlaying="y", side="right", range=[0, 105], showgrid=False),
-            xaxis=dict(tickangle=-45),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        )
-        st.plotly_chart(fig_pareto_p, use_container_width=True)
+        st.markdown("""
+        <div class="note-box">
+            <strong>Analyst Takeaway:</strong> Wonka Bar chocolate varieties are the lifeblood of Nassau Candy, delivering over 95% of total enterprise profit with steady 65–71% gross margins. Watch out for items in the bottom right of the scatter—those sell volume but leak margin.
+        </div>
+        """, unsafe_allow_html=True)
 
-    with col_pareto_2:
-        st.markdown("#### Gross Revenue Pareto Curve")
-        fig_pareto_s = go.Figure()
-        fig_pareto_s.add_trace(go.Bar(
-            name="Gross Sales ($)",
-            x=pareto_sales_df["Product Name"],
-            y=pareto_sales_df["Metric_Value"],
-            marker_color="#0d9488",
-            yaxis="y1"
-        ))
-        fig_pareto_s.add_trace(go.Scatter(
-            name="Cumulative Sales %",
-            x=pareto_sales_df["Product Name"],
-            y=pareto_sales_df["Cumulative_%"],
-            marker=dict(color="#6366f1", size=8),
-            line=dict(color="#6366f1", width=3),
-            yaxis="y2"
-        ))
-        fig_pareto_s.add_hline(y=80, line_dash="dash", line_color="#ef4444", yref="y2", annotation_text="80% Threshold")
+# -----------------------------------------------------------------------------
+# 2. DIVISION PERFORMANCE
+# -----------------------------------------------------------------------------
+elif nav == "Division Performance":
+    c_left, c_right = st.columns([1.8, 1.2])
+    
+    with c_left:
+        with st.container(border=True):
+            st.markdown("### Revenue vs. Profit by Division")
+            st.markdown('<div class="chart-caption">Chocolate represents nearly the entire revenue bar and profit bar. Other & Sugar are tiny by comparison.</div>', unsafe_allow_html=True)
+            
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                name='Sales ($)',
+                x=div_df['Division'],
+                y=div_df['Total_Sales'],
+                marker_color='#0f766e',
+                text=div_df['Total_Sales'].apply(lambda x: f"${x:,.0f}"),
+                textposition='outside'
+            ))
+            fig.add_trace(go.Bar(
+                name='Gross Profit ($)',
+                x=div_df['Division'],
+                y=div_df['Total_Profit'],
+                marker_color='#c2410c',
+                text=div_df['Total_Profit'].apply(lambda x: f"${x:,.0f}"),
+                textposition='outside'
+            ))
+            fig.update_layout(
+                barmode='group',
+                template='plotly_white',
+                height=340,
+                margin=dict(l=10, r=10, t=20, b=20),
+                yaxis=dict(showgrid=True, gridcolor="#f1f5f9")
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        with st.container(border=True):
+            st.markdown("### Transaction Margin Dispersion")
+            st.markdown('<div class="chart-caption">Notice the wide spread in "Other" caused by Kazookles (7.7%) pulling down Lickable Wallpaper (50%).</div>', unsafe_allow_html=True)
+            
+            fig_box = px.box(
+                df,
+                x='Division',
+                y='Gross Margin %',
+                color='Division',
+                color_discrete_sequence=PALETTE,
+                points="outliers"
+            )
+            fig_box.update_layout(
+                template='plotly_white',
+                height=260,
+                showlegend=False,
+                margin=dict(l=10, r=10, t=10, b=20),
+                yaxis=dict(showgrid=True, gridcolor="#f1f5f9")
+            )
+            st.plotly_chart(fig_box, use_container_width=True)
+
+    with c_right:
+        with st.container(border=True):
+            st.markdown("### Division Summary Table")
+            st.dataframe(
+                div_df[['Division', 'Total_Sales', 'Total_Profit', 'Gross_Margin_%', 'Revenue_Share_%', 'Profit_Share_%']],
+                column_config={
+                    'Division': st.column_config.TextColumn("Division"),
+                    'Total_Sales': st.column_config.NumberColumn("Sales", format="$%.2f"),
+                    'Total_Profit': st.column_config.NumberColumn("Profit", format="$%.2f"),
+                    'Gross_Margin_%': st.column_config.ProgressColumn("Margin", format="%.1f%%", min_value=0, max_value=100),
+                    'Revenue_Share_%': st.column_config.NumberColumn("Rev %", format="%.1f%%"),
+                    'Profit_Share_%': st.column_config.NumberColumn("Profit %", format="%.1f%%")
+                },
+                use_container_width=True,
+                hide_index=True
+            )
+            
+        st.markdown("""
+        <div class="note-box">
+            <strong>Key Division Findings:</strong><br>
+            • <strong>Chocolate:</strong> 92.9% of sales, 95.1% of profit. Rock solid.<br>
+            • <strong>Other:</strong> $9.6k sales with 44.8% blended margin; dragged down by high supplier costs.<br>
+            • <strong>Sugar:</strong> 66.6% margin, but only $427 in total sales across 2 years. Untapped potential.
+        </div>
+        """, unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# 3. COST VS MARGIN DIAGNOSTICS
+# -----------------------------------------------------------------------------
+elif nav == "Cost vs Margin Diagnostics":
+    c_diag, c_sim = st.columns([1.6, 1.4])
+    
+    with c_diag:
+        with st.container(border=True):
+            st.markdown("### Cost of Goods vs. Revenue")
+            st.markdown('<div class="chart-caption">Dots above the red dashed line incur supplier costs >70% of retail price.</div>', unsafe_allow_html=True)
+            
+            fig_c = px.scatter(
+                prod_df,
+                x='Total_Sales',
+                y='Total_Cost',
+                size='Total_Units',
+                color='Gross_Margin_%',
+                color_continuous_scale='Tealgrn',
+                hover_name='Product Name',
+                hover_data={'Total_Sales': ':$,.2f', 'Total_Cost': ':$,.2f', 'Cost_Ratio_%': ':.1f%'},
+                labels={'Total_Sales': 'Sales ($)', 'Total_Cost': 'Cost ($)'}
+            )
+            
+            max_val = prod_df['Total_Sales'].max()
+            fig_c.add_trace(go.Scatter(
+                x=[0, max_val],
+                y=[0, max_val * 0.70],
+                mode="lines",
+                name="70% Cost Alert Line",
+                line=dict(color="#c2410c", dash="dash", width=2)
+            ))
+            fig_c.update_layout(
+                template='plotly_white',
+                height=340,
+                margin=dict(l=10, r=10, t=10, b=20),
+                yaxis=dict(showgrid=True, gridcolor="#f1f5f9")
+            )
+            st.plotly_chart(fig_c, use_container_width=True)
+
+        diag_table = get_cost_diagnostics(df)
+        with st.container(border=True):
+            st.markdown("### Actionable SKU Diagnostic Register")
+            st.dataframe(
+                diag_table[['Product Name', 'Division', 'Total_Sales', 'Cost_Ratio_%', 'Gross_Margin_%', 'Urgency', 'Action_Plan']],
+                column_config={
+                    'Product Name': st.column_config.TextColumn("Product Name", width="medium"),
+                    'Division': st.column_config.TextColumn("Division"),
+                    'Total_Sales': st.column_config.NumberColumn("Sales", format="$%.2f"),
+                    'Cost_Ratio_%': st.column_config.NumberColumn("Cost %", format="%.1f%%"),
+                    'Gross_Margin_%': st.column_config.ProgressColumn("Margin %", format="%.1f%%", min_value=0, max_value=100),
+                    'Urgency': st.column_config.TextColumn("Priority"),
+                    'Action_Plan': st.column_config.TextColumn("Prescribed Remedial Action", width="large")
+                },
+                use_container_width=True,
+                hide_index=True,
+                height=260
+            )
+
+    with c_sim:
+        with st.container(border=True):
+            st.markdown("### What-If Repricing & Cost Simulator")
+            st.markdown('<div class="chart-caption">Simulate price elasticity and supplier cost cuts to see the exact bottom-line profit recovery.</div>', unsafe_allow_html=True)
+            
+            target_sku = st.selectbox(
+                "Select Product to Model",
+                prod_df['Product Name'].tolist(),
+                index=prod_df[prod_df['Product Name'] == 'Kazookles'].index[0] if 'Kazookles' in prod_df['Product Name'].values else 0
+            )
+            
+            p_adj = st.slider("Selling Price Adjustment (%)", -10.0, 30.0, 10.0, step=1.0)
+            c_adj = st.slider("Supplier Cost Reduction (%)", 0.0, 20.0, 5.0, step=1.0)
+            elast = st.slider("Price Elasticity of Demand", -1.0, 0.0, -0.3, step=0.05, help="Standard confectionery elasticity is around -0.3 (inelastic).")
+            
+            sim = simulate_price_impact(df, target_sku, price_pct=p_adj, cost_pct=c_adj, elasticity=elast)
+            
+            if sim:
+                sc1, sc2 = st.columns(2)
+                with sc1:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-label">New Gross Profit</div>
+                        <div class="metric-val">${sim['new_profit']:,.2f}</div>
+                        <div class="metric-sub">{sim['profit_diff']:+,.2f} ({sim['profit_pct_gain']:+.1f}%)</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with sc2:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-label">New Gross Margin</div>
+                        <div class="metric-val">{sim['new_margin']:.1f}%</div>
+                        <div class="metric-sub">{sim['margin_diff']:+.1f}% pts delta</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                fig_sim = go.Figure()
+                fig_sim.add_trace(go.Bar(
+                    name='Current Baseline',
+                    x=['Revenue', 'COGS Cost', 'Gross Profit'],
+                    y=[sim['base_sales'], sim['base_sales'] - sim['base_profit'], sim['base_profit']],
+                    marker_color='#94a3b8'
+                ))
+                fig_sim.add_trace(go.Bar(
+                    name='Simulated Outcome',
+                    x=['Revenue', 'COGS Cost', 'Gross Profit'],
+                    y=[sim['new_sales'], sim['new_sales'] - sim['new_profit'], sim['new_profit']],
+                    marker_color='#0f766e'
+                ))
+                fig_sim.update_layout(
+                    barmode='group',
+                    template='plotly_white',
+                    height=240,
+                    margin=dict(l=10, r=10, t=10, b=20),
+                    yaxis=dict(showgrid=True, gridcolor="#f1f5f9")
+                )
+                st.plotly_chart(fig_sim, use_container_width=True)
+
+# -----------------------------------------------------------------------------
+# 4. PROFIT CONCENTRATION (PARETO)
+# -----------------------------------------------------------------------------
+elif nav == "Profit Concentration (Pareto)":
+    pareto_df, p_meta = get_pareto(df, col='Gross Profit')
+    sales_p_df, s_meta = get_pareto(df, col='Sales')
+    
+    col_p1, col_p2 = st.columns([1.8, 1.2])
+    
+    with col_p1:
+        with st.container(border=True):
+            st.markdown("### Gross Profit Pareto Curve (80/20 Rule)")
+            st.markdown('<div class="chart-caption">The orange line shows cumulative profit. Notice how quickly it hits the 80% dashed red line.</div>', unsafe_allow_html=True)
+            
+            fig_p = go.Figure()
+            fig_p.add_trace(go.Bar(
+                name='Gross Profit ($)',
+                x=pareto_df['Product Name'],
+                y=pareto_df['Gross Profit'],
+                marker_color='#0f766e',
+                yaxis='y1'
+            ))
+            fig_p.add_trace(go.Scatter(
+                name='Cumulative %',
+                x=pareto_df['Product Name'],
+                y=pareto_df['Cumulative_%'],
+                marker=dict(color='#c2410c', size=7),
+                line=dict(color='#c2410c', width=2.5),
+                yaxis='y2'
+            ))
+            fig_p.add_hline(y=80, line_dash="dash", line_color="#ef4444", yref="y2")
+            
+            fig_p.update_layout(
+                template='plotly_white',
+                height=380,
+                margin=dict(l=10, r=10, t=20, b=80),
+                yaxis=dict(title="Gross Profit ($)", showgrid=True, gridcolor="#f1f5f9"),
+                yaxis2=dict(title="Cumulative %", overlaying="y", side="right", range=[0, 105], showgrid=False),
+                xaxis=dict(tickangle=-45),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
+            st.plotly_chart(fig_p, use_container_width=True)
+
+    with col_p2:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">SKUs Generating 80% of Profit</div>
+            <div class="metric-val">{p_meta['skus_for_80']} of {len(pareto_df)} SKUs</div>
+            <div class="metric-sub alert">{p_meta['pct_catalog_for_80']:.1f}% of catalog drives 80% margin</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Top SKU Profit Contribution</div>
+            <div class="metric-val">{p_meta['top_sku_share']:.1f}%</div>
+            <div class="metric-sub">{p_meta['top_sku'][:22]}...</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Profit Concentration Index (HHI)</div>
+            <div class="metric-val">{p_meta['hhi']:,.0f}</div>
+            <div class="metric-sub">Moderate Concentration Risk</div>
+        </div>
+        """, unsafe_allow_html=True)
         
-        fig_pareto_s.update_layout(
-            height=420,
-            margin=dict(l=10, r=10, t=30, b=80),
-            yaxis=dict(title="Gross Revenue ($)", showgrid=True, gridcolor="#f1f5f9"),
-            yaxis2=dict(title="Cumulative %", overlaying="y", side="right", range=[0, 105], showgrid=False),
-            xaxis=dict(tickangle=-45),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        )
-        st.plotly_chart(fig_pareto_s, use_container_width=True)
-
-
-# =============================================================================
-# TAB 5: STRATEGIC GROWTH MATRIX & VOLATILITY
-# =============================================================================
-with tab5:
-    st.markdown("### 🎯 Strategic Growth Matrix (BCG-Style Portfolio Classification)")
-    st.caption("Strategic segmentation based on Sales Volume (scale) and Gross Margin % (profitability).")
-
-    # Matrix Table / Counts
-    cat_summary = product_metrics_df.groupby("Strategic_Category").agg(
-        SKU_Count=("Product Name", "count"),
-        Total_Sales=("Total_Sales", "sum"),
-        Total_Profit=("Total_Profit", "sum"),
-        Avg_Margin=("Gross_Margin_%", "mean")
-    ).reset_index()
-
-    st.dataframe(
-        cat_summary,
-        column_config={
-            "Strategic_Category": st.column_config.TextColumn("Strategic Category", width="medium"),
-            "SKU_Count": st.column_config.NumberColumn("Active SKUs", format="%d"),
-            "Total_Sales": st.column_config.NumberColumn("Total Sales", format="$%.2f"),
-            "Total_Profit": st.column_config.NumberColumn("Gross Profit", format="$%.2f"),
-            "Avg_Margin": st.column_config.ProgressColumn("Avg Gross Margin %", format="%.1f%%", min_value=0, max_value=100)
-        },
-        use_container_width=True,
-        hide_index=True
-    )
-
-    st.divider()
-
-    # Time-Series Gross Margin & Volatility
-    st.markdown("### 📉 Monthly Margin Volatility Over Time")
-    st.caption("Tracking Gross Margin % stability across historical months.")
-
-    trend_df = get_monthly_profitability_trend(filtered_df)
-    
-    fig_trend = go.Figure()
-    fig_trend.add_trace(go.Scatter(
-        name="Gross Margin %",
-        x=trend_df["YearMonth"],
-        y=trend_df["Gross_Margin_%"],
-        mode="lines+markers",
-        line=dict(color="#10b981", width=3),
-        marker=dict(size=7),
-        yaxis="y1"
-    ))
-    fig_trend.add_trace(go.Bar(
-        name="Monthly Revenue ($)",
-        x=trend_df["YearMonth"],
-        y=trend_df["Sales"],
-        marker_color="rgba(59, 130, 246, 0.3)",
-        yaxis="y2"
-    ))
-    
-    fig_trend.update_layout(
-        height=380,
-        margin=dict(l=10, r=10, t=30, b=20),
-        yaxis=dict(title="Gross Margin (%)", showgrid=True, gridcolor="#f1f5f9", range=[40, 85]),
-        yaxis2=dict(title="Sales Revenue ($)", overlaying="y", side="right", showgrid=False),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-    )
-    st.plotly_chart(fig_trend, use_container_width=True)
-
-
-# =============================================================================
-# TAB 6: EXECUTIVE BRIEFING & EXPORT
-# =============================================================================
-with tab6:
-    st.markdown("### 📄 Executive Briefing & Strategic Action Roadmap")
-    
-    st.markdown("""
-    <div class="action-banner">
-        <strong>Executive Summary:</strong> Nassau Candy Distributor demonstrates robust core profitability driven by the Wonka Bar line in the Chocolate Division. However, critical margin leakage exists in high-cost SKUs (e.g., Kazookles at 92.3% COGS ratio) and severe profit concentration (33% of catalog generates 80% of net margin).
-    </div>
-    """, unsafe_allow_html=True)
-
-    e1, e2 = st.columns(2)
-
-    with e1:
         st.markdown("""
-        #### 🎯 Key Financial Discoveries
-        1. **Chocolate Division Dominance**:
-           - Represents **92.9% of Total Sales** and **95.1% of Gross Profit**.
-           - All 5 Wonka Bars exhibit healthy unit margins exceeding 64%.
-        2. **Critical Margin Leakage in 'Other'**:
-           - **Kazookles** generates $1,205.75 in sales but incurs $1,113.00 in cost (7.69% margin).
-           - Supplier cost renegotiation or +15% price adjustment will yield over **+$168 profit recovery**.
-        3. **High-Margin Niche Sugar Opportunities**:
-           - **Everlasting Gobstopper** (80.0% margin) and **Hair Toffee** (77.8% margin) demonstrate exceptional margin strength but suffer from severely constrained sales volume.
-        """)
+        <div class="note-box">
+            <strong>Concentration Assessment:</strong> Nassau Candy operates with a classic 80/20 skew. Exactly 5 Wonka chocolate products carry the entire financial weight of the business. A disruption at the primary chocolate lines would immediately compromise cash flows.
+        </div>
+        """, unsafe_allow_html=True)
 
-    with e2:
-        st.markdown("""
-        #### 🚀 Recommended C-Suite Actions
-        1. **Immediate Vendor Price Renegotiation**:
-           - Audit vendor contract for Kazookles. Cap COGS at <60% of wholesale list price.
-        2. **Strategic Repricing on Inelastic Volume**:
-           - Implement a 3.5% price increase on top 3 chocolate volume anchors (*Wonka Bar - Scrumdiddlyumptious, Triple Dazzle Caramel, Milk Chocolate*).
-        3. **SKU Catalog Rationalization**:
-           - Discontinue bottom 3 Sugar SKUs (*Fun Dip, Nerds, Laffy Taffy*) if minimum order volume thresholds are not met to eliminate warehouse handling overhead.
-        4. **Scale High-Margin Sugar SKUs**:
-           - Launch cross-merchandising campaigns pairing Gobstoppers with Wonka Bars.
-        """)
+# -----------------------------------------------------------------------------
+# 5. EXECUTIVE BRIEFING & EXPORT
+# -----------------------------------------------------------------------------
+else:
+    c_sum1, c_sum2 = st.columns([1.6, 1.4])
+    
+    with c_sum1:
+        with st.container(border=True):
+            st.markdown("### Executive Summary & Action Plan")
+            st.markdown("""
+            **1. Protect & Reprice the Core Chocolate Engines**
+            - The 5 Wonka Bars account for **95.1% of total gross profit** ($88.8k of $93.4k).
+            - Apply a selective **+3.5% price increase** on the top 3 volume drivers to capture ~+$2,850 in bottom-line margin without volume erosion.
 
-    st.divider()
+            **2. Eliminate the Kazookles Supplier Deficit**
+            - Kazookles generates $1,205 in sales but incurs $1,113 in supplier cost (only 7.69% gross margin).
+            - Demand a 20% supplier cost reduction or reprice wholesale from $3.25 to $3.75.
 
-    # Data Export Center
-    st.markdown("### 💾 Export Cleaned Dataset & Reports")
-    exp_col1, exp_col2, exp_col3 = st.columns(3)
+            **3. Commercialize High-Margin Sugar Gems**
+            - *Everlasting Gobstopper* (80.0% margin) and *Hair Toffee* (77.8% margin) deliver huge margin but low volume.
+            - Bundle them with chocolate wholesale cartons to scale distribution.
 
-    with exp_col1:
-        csv_filtered = filtered_df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 Download Filtered Transactions CSV",
-            data=csv_filtered,
-            file_name=f"nassau_candy_filtered_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
+            **4. Prune Negative-ROI Tail SKUs**
+            - Discontinue *Fun Dip* and *Nerds* if minimum batch order sizes are not met to free up warehouse slotting.
+            """)
 
-    with exp_col2:
-        csv_product = product_metrics_df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 Download Product Performance CSV",
-            data=csv_product,
-            file_name=f"nassau_product_performance_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-
-    with exp_col3:
-        csv_diag = cost_diag_df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 Download Remedial Action Register CSV",
-            data=csv_diag,
-            file_name=f"nassau_remedial_action_register_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
+    with c_sum2:
+        with st.container(border=True):
+            st.markdown("### Export Cleaned Data")
+            st.markdown('<div class="chart-caption">Download timestamped CSVs for financial reporting and external spreadsheets.</div>', unsafe_allow_html=True)
+            
+            ts = datetime.now().strftime("%Y%m%d")
+            
+            st.download_button(
+                "📥 Export Filtered Orders CSV",
+                df.to_csv(index=False).encode('utf-8'),
+                f"nassau_candy_filtered_{ts}.csv",
+                "text/csv",
+                use_container_width=True
+            )
+            
+            st.download_button(
+                "📥 Export Product Performance Summary",
+                prod_df.to_csv(index=False).encode('utf-8'),
+                f"nassau_product_performance_{ts}.csv",
+                "text/csv",
+                use_container_width=True
+            )
+            
+            st.download_button(
+                "📥 Export SKU Diagnostic Register",
+                get_cost_diagnostics(df).to_csv(index=False).encode('utf-8'),
+                f"nassau_sku_diagnostics_{ts}.csv",
+                "text/csv",
+                use_container_width=True
+            )
