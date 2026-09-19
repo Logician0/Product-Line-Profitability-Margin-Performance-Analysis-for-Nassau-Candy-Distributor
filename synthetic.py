@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import datetime
 
-# 5 manufacturing plants for Nassau Candy
-FACTORIES = {
+# quick lookup for the factories
+factories = {
     'Wonka Bar - Milk Chocolate': ('Hicksville HQ Facility', 40.7684, -73.5251),
     'Wonka Bar - Scrumdiddlyumptious': ('Hicksville HQ Facility', 40.7684, -73.5251),
     'Wonka Bar - Triple Dazzle Caramel': ('Livonia Specialty Plant', 42.3684, -83.3527),
@@ -21,7 +21,7 @@ FACTORIES = {
     'Fun Dip': ('Jacksonville Sugar Mill', 30.3322, -81.6557)
 }
 
-CATALOG = [
+catalog = [
     ('Chocolate', 'CHO-SCR-58000', 'Wonka Bar - Scrumdiddlyumptious', 3.60, 1.10, 0.20),
     ('Chocolate', 'CHO-TRI-54000', 'Wonka Bar - Triple Dazzle Caramel', 3.75, 1.30, 0.20),
     ('Chocolate', 'CHO-MIL-31000', 'Wonka Bar - Milk Chocolate', 3.25, 1.14, 0.21),
@@ -39,38 +39,38 @@ CATALOG = [
     ('Sugar', 'SUG-DIP-12000', 'Fun Dip', 1.50, 0.90, 0.0002)
 ]
 
-REGIONS = ['Pacific', 'Atlantic', 'Interior', 'Gulf']
-CITIES = {
+regions = ['Pacific', 'Atlantic', 'Interior', 'Gulf']
+locations = {
     'Pacific': ('Los Angeles', 'California', '90049'),
     'Atlantic': ('Philadelphia', 'Pennsylvania', '19143'),
     'Interior': ('Naperville', 'Illinois', '60540'),
     'Gulf': ('Henderson', 'Kentucky', '42420')
 }
 
-def create_dataset(n=10194, filename='nassau_candy.csv'):
+def make_fake_data(n=10194, path='nassau_candy.csv'):
     np.random.seed(42)
     start = datetime.date(2024, 1, 2)
     end = datetime.date(2025, 12, 31)
-    days = (end - start).days
+    day_span = (end - start).days
 
-    weights = [c[5] for c in CATALOG]
-    probs = [w / sum(weights) for w in weights]
+    w = [item[5] for item in catalog]
+    weights = [x / sum(w) for x in w]
     
     rows = []
     for i in range(1, n + 1):
-        idx = np.random.choice(len(CATALOG), p=probs)
-        div, pid, name, price, cost_unit, _ = CATALOG[idx]
+        pick = np.random.choice(len(catalog), p=weights)
+        div, pid, name, price, unit_cost, _ = catalog[pick]
         
-        ord_date = start + datetime.timedelta(days=int(np.random.randint(0, days)))
+        ord_date = start + datetime.timedelta(days=int(np.random.randint(0, day_span)))
         ship_date = ord_date + datetime.timedelta(days=int(np.random.choice([2, 3, 4, 5])))
         
-        reg = np.random.choice(REGIONS, p=[0.32, 0.29, 0.23, 0.16])
-        city, state, postal = CITIES[reg]
+        reg = np.random.choice(regions, p=[0.32, 0.29, 0.23, 0.16])
+        city, state, zip_code = locations[reg]
         
-        # Confectionery purchase baskets usually 1-8 units
+        # most orders are small batches
         units = int(np.random.choice([1, 2, 3, 4, 6, 8, 10], p=[0.28, 0.28, 0.20, 0.12, 0.07, 0.03, 0.02]))
         sales = round(price * units, 2)
-        cost = round(cost_unit * units, 2)
+        cost = round(unit_cost * units, 2)
         profit = round(sales - cost, 2)
         
         rows.append({
@@ -83,7 +83,7 @@ def create_dataset(n=10194, filename='nassau_candy.csv'):
             'Country/Region': 'United States',
             'City': city,
             'State/Province': state,
-            'Postal Code': postal,
+            'Postal Code': zip_code,
             'Division': div,
             'Region': reg,
             'Product ID': pid,
@@ -95,8 +95,8 @@ def create_dataset(n=10194, filename='nassau_candy.csv'):
         })
         
     df = pd.DataFrame(rows)
-    df.to_csv(filename, index=False)
+    df.to_csv(path, index=False)
     return df
 
 if __name__ == '__main__':
-    create_dataset()
+    make_fake_data()

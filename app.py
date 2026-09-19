@@ -5,7 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 
-from data_loader import load_data
+from data import get_clean_data
 from analysis import (
     get_kpis,
     get_product_summary,
@@ -165,7 +165,7 @@ PALETTE = ["#0f766e", "#c2410c", "#b45309", "#334155", "#64748b", "#0284c7"]
 # Load data
 @st.cache_data
 def get_data():
-    return load_data()
+    return get_clean_data()
 
 raw_df = get_data()
 
