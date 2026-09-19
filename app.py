@@ -339,21 +339,31 @@ with tab1:
         "Revenue_Share_%", "Profit_Share_%", "Margin_Volatility_Pct", "Strategic_Category"
     ]].copy()
 
-    # Format styling for dataframe
+    # Format styling with Streamlit native column_config (robust & high performance)
     st.dataframe(
-        display_prod_df.style.format({
-            "Total_Sales": "${:,.2f}",
-            "Total_Cost": "${:,.2f}",
-            "Total_Profit": "${:,.2f}",
-            "Gross_Margin_%": "{:.1f}%",
-            "Cost_Ratio_%": "{:.1f}%",
-            "Profit_Per_Unit": "${:.2f}",
-            "Revenue_Share_%": "{:.2f}%",
-            "Profit_Share_%": "{:.2f}%",
-            "Margin_Volatility_Pct": "{:.2f}%"
-        }).background_gradient(subset=["Gross_Margin_%"], cmap="RdYlGn", vmin=10, vmax=80)
-          .background_gradient(subset=["Total_Profit"], cmap="Blues"),
+        display_prod_df,
+        column_config={
+            "Product Name": st.column_config.TextColumn("Product Name", width="medium"),
+            "Division": st.column_config.TextColumn("Division"),
+            "Factory": st.column_config.TextColumn("Manufacturing Plant"),
+            "Total_Sales": st.column_config.NumberColumn("Total Sales", format="$%.2f"),
+            "Total_Cost": st.column_config.NumberColumn("Total Cost", format="$%.2f"),
+            "Total_Profit": st.column_config.NumberColumn("Gross Profit", format="$%.2f"),
+            "Gross_Margin_%": st.column_config.ProgressColumn(
+                "Gross Margin %",
+                format="%.1f%%",
+                min_value=0,
+                max_value=100
+            ),
+            "Cost_Ratio_%": st.column_config.NumberColumn("Cost Ratio %", format="%.1f%%"),
+            "Profit_Per_Unit": st.column_config.NumberColumn("Profit / Unit", format="$%.2f"),
+            "Revenue_Share_%": st.column_config.NumberColumn("Revenue Share %", format="%.2f%%"),
+            "Profit_Share_%": st.column_config.NumberColumn("Profit Share %", format="%.2f%%"),
+            "Margin_Volatility_Pct": st.column_config.NumberColumn("Margin Volatility %", format="%.2f%%"),
+            "Strategic_Category": st.column_config.TextColumn("Strategic Category", width="medium")
+        },
         use_container_width=True,
+        hide_index=True,
         height=380
     )
 
@@ -505,17 +515,23 @@ with tab2:
 
     st.markdown("#### Division Financial Summary Table")
     st.dataframe(
-        div_df.style.format({
-            "Total_Sales": "${:,.2f}",
-            "Total_Cost": "${:,.2f}",
-            "Total_Profit": "${:,.2f}",
-            "Gross_Margin_%": "{:.2f}%",
-            "Cost_Ratio_%": "{:.2f}%",
-            "Profit_Per_Unit": "${:.2f}",
-            "Revenue_Share_%": "{:.2f}%",
-            "Profit_Share_%": "{:.2f}%"
-        }).background_gradient(subset=["Gross_Margin_%"], cmap="Greens"),
-        use_container_width=True
+        div_df,
+        column_config={
+            "Division": st.column_config.TextColumn("Division"),
+            "Total_Sales": st.column_config.NumberColumn("Total Sales", format="$%.2f"),
+            "Total_Cost": st.column_config.NumberColumn("Total Cost", format="$%.2f"),
+            "Total_Profit": st.column_config.NumberColumn("Gross Profit", format="$%.2f"),
+            "Total_Units": st.column_config.NumberColumn("Units Shipped", format="%d"),
+            "Order_Count": st.column_config.NumberColumn("Orders", format="%d"),
+            "Product_Count": st.column_config.NumberColumn("SKU Count", format="%d"),
+            "Gross_Margin_%": st.column_config.ProgressColumn("Gross Margin %", format="%.2f%%", min_value=0, max_value=100),
+            "Cost_Ratio_%": st.column_config.NumberColumn("Cost Ratio %", format="%.2f%%"),
+            "Profit_Per_Unit": st.column_config.NumberColumn("Profit / Unit", format="$%.2f"),
+            "Revenue_Share_%": st.column_config.NumberColumn("Revenue Share %", format="%.2f%%"),
+            "Profit_Share_%": st.column_config.NumberColumn("Profit Share %", format="%.2f%%")
+        },
+        use_container_width=True,
+        hide_index=True
     )
 
     st.divider()
@@ -626,24 +642,21 @@ with tab3:
         "Gross_Margin_%", "Profit_Per_Unit", "Action_Severity", "Recommended_Action"
     ]].copy()
 
-    def highlight_severity(val):
-        if val == "Critical":
-            return "background-color: #fee2e2; color: #991b1b; font-weight: bold;"
-        elif val == "High":
-            return "background-color: #ffedd5; color: #9a3412; font-weight: bold;"
-        elif val == "Opportunity":
-            return "background-color: #d1fae5; color: #065f46; font-weight: bold;"
-        return ""
-
     st.dataframe(
-        action_table.style.format({
-            "Total_Sales": "${:,.2f}",
-            "Total_Cost": "${:,.2f}",
-            "Cost_Ratio_%": "{:.1f}%",
-            "Gross_Margin_%": "{:.1f}%",
-            "Profit_Per_Unit": "${:.2f}"
-        }).applymap(highlight_severity, subset=["Action_Severity"]),
+        action_table,
+        column_config={
+            "Product Name": st.column_config.TextColumn("Product Name", width="medium"),
+            "Division": st.column_config.TextColumn("Division"),
+            "Total_Sales": st.column_config.NumberColumn("Total Sales", format="$%.2f"),
+            "Total_Cost": st.column_config.NumberColumn("Total Cost", format="$%.2f"),
+            "Cost_Ratio_%": st.column_config.NumberColumn("Cost Ratio %", format="%.1f%%"),
+            "Gross_Margin_%": st.column_config.ProgressColumn("Gross Margin %", format="%.1f%%", min_value=0, max_value=100),
+            "Profit_Per_Unit": st.column_config.NumberColumn("Profit / Unit", format="$%.2f"),
+            "Action_Severity": st.column_config.TextColumn("Severity"),
+            "Recommended_Action": st.column_config.TextColumn("Strategic Diagnostic & Trigger", width="large")
+        },
         use_container_width=True,
+        hide_index=True,
         height=320
     )
 
@@ -839,12 +852,16 @@ with tab5:
     ).reset_index()
 
     st.dataframe(
-        cat_summary.style.format({
-            "Total_Sales": "${:,.2f}",
-            "Total_Profit": "${:,.2f}",
-            "Avg_Margin": "{:.1f}%"
-        }),
-        use_container_width=True
+        cat_summary,
+        column_config={
+            "Strategic_Category": st.column_config.TextColumn("Strategic Category", width="medium"),
+            "SKU_Count": st.column_config.NumberColumn("Active SKUs", format="%d"),
+            "Total_Sales": st.column_config.NumberColumn("Total Sales", format="$%.2f"),
+            "Total_Profit": st.column_config.NumberColumn("Gross Profit", format="$%.2f"),
+            "Avg_Margin": st.column_config.ProgressColumn("Avg Gross Margin %", format="%.1f%%", min_value=0, max_value=100)
+        },
+        use_container_width=True,
+        hide_index=True
     )
 
     st.divider()
